@@ -1,6 +1,11 @@
 "use client"
 
-import { Show, SignOutButton, UserButton } from "@clerk/nextjs"
+import {
+  OrganizationSwitcher,
+  Show,
+  SignOutButton,
+  UserButton,
+} from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 
 export default function Page() {
@@ -9,8 +14,11 @@ export default function Page() {
       <header className="flex items-center justify-between border-b px-6 py-4">
         <span className="font-medium">Browser Automation</span>
         <Show when="signed-in">
-          <div className="flex items-center gap-2">
-            <UserButton />
+          <div className="flex items-start gap-2">
+            <div className="flex flex-col items-center gap-2">
+              <UserButton />
+              <OrganizationSwitcher />
+            </div>
             <SignOutButton>
               <Button variant="outline">Sign out</Button>
             </SignOutButton>
