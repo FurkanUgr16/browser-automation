@@ -1,42 +1,26 @@
 "use client"
 
-import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs"
+import { Show, SignOutButton, UserButton } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
 
 export default function Page() {
   return (
     <div className="flex min-h-svh flex-col">
       <header className="flex items-center justify-between border-b px-6 py-4">
         <span className="font-medium">Browser Automation</span>
-        <div className="flex items-center gap-2">
-          <Show when="signed-out">
-            <SignInButton mode="modal">
-              <Button variant="ghost">Sign in</Button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <Button>Sign up</Button>
-            </SignUpButton>
-          </Show>
-          <Show when="signed-in">
+        <Show when="signed-in">
+          <div className="flex items-center gap-2">
             <UserButton />
-          </Show>
-        </div>
+            <SignOutButton>
+              <Button variant="outline">Sign out</Button>
+            </SignOutButton>
+          </div>
+        </Show>
       </header>
-      <main className="flex flex-1 p-6">
-        <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-          <div>
-            <h1 className="font-medium">Project ready!</h1>
-            <p>You may now add components and start building.</p>
-            <p>We&apos;ve already added the button component for you.</p>
-            <Button onClick={() => toast("clicked")} className="mt-2">
-              Button
-            </Button>
-          </div>
-          <div className="font-mono text-xs text-muted-foreground">
-            (Press <kbd>d</kbd> to toggle dark mode)
-          </div>
-        </div>
+      <main className="flex flex-1 items-center justify-center p-6">
+        <p className="text-sm text-muted-foreground">
+          You&apos;re signed in. Welcome!
+        </p>
       </main>
     </div>
   )
