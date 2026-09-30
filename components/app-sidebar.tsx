@@ -1,7 +1,5 @@
-"use client"
-
 import { OrganizationSwitcher, UserButton } from "@clerk/nextjs"
-import { Plus, Workflow } from "lucide-react"
+import { Plus } from "lucide-react"
 
 import {
   Sidebar,
@@ -12,45 +10,10 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-
-const navItems = [
-  {
-    title: "Workflows",
-    url: "/",
-    icon: Workflow,
-  },
-  {
-    title: "Runs",
-    url: "/",
-    icon: Workflow,
-  },
-  {
-    title: "Templates",
-    url: "/",
-    icon: Workflow,
-  },
-  {
-    title: "Integrations",
-    url: "/",
-    icon: Workflow,
-  },
-  {
-    title: "Credentials",
-    url: "/",
-    icon: Workflow,
-  },
-  {
-    title: "Settings",
-    url: "/",
-    icon: Workflow,
-  },
-]
+import { WorkflowNav } from "@/features/workflows/components/workflow-nav"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -74,18 +37,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <span className="sr-only">New workflow</span>
           </SidebarGroupAction>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
+            <WorkflowNav />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
