@@ -6,6 +6,8 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
 
+import { RightSidebar } from "@/features/workflows/components/right-sidebar"
+
 type WorkflowShellProps = {
   workflowId: string
 }
@@ -49,7 +51,7 @@ export function WorkflowShell({ workflowId }: WorkflowShellProps) {
         minSize="14rem"
         maxSize="36rem"
       >
-        <div className={placeholder}>Inspector</div>
+        <RightSidebar workflowId={workflowId} />
       </ResizablePanel>
     </ResizablePanelGroup>
   )
