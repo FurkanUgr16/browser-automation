@@ -6,6 +6,8 @@ import {
   PlusIcon,
   Workflow as WorkflowIcon,
 } from "lucide-react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { toast } from "sonner"
 
 import {
@@ -41,6 +43,7 @@ export function WorkflowNav({
   createWorkflowAction,
 }: WorkflowNavProps) {
   const { state } = useSidebar()
+  const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
 
   const createWorkflow = () => {
@@ -69,13 +72,19 @@ export function WorkflowNav({
           </SidebarMenuButton>
         </SidebarMenuItem>
       )}
-      {workflows.map((workflow) => (
-        <SidebarMenuItem key={workflow.id}>
-          <SidebarMenuButton className="gap-y-0.5">
-            {workflow.name}
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      ))}
+      {workflows.map((workflow) => {
+        const href = `/workflows/${workflow.id}`
+        // Highlight the workflow that is currently open, including any nested
+        // route under it.
+        const isActive = pathname === href || pathname.startsWith(`${href}/`)
+        return (
+          <SidebarMenuItem key={workflow.id}>
+            <SidebarMenuButton className="gap-y-0.5" asChild isActive={isActive}>
+              <Link href={href}>{workflow.name}</Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )
+      })}
     </SidebarMenu>
   )
 
