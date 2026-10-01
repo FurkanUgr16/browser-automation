@@ -2,22 +2,21 @@
 
 import { useEffect, useState } from "react"
 import {
-  addEdge,
   ConnectionLineType,
   Controls,
   ReactFlow,
-  useEdgesState,
-  useNodesState,
   type ColorMode,
-  type Connection,
   type Edge,
   NodeTypes,
 } from "@xyflow/react"
+import { useLiveblocksFlow, Cursors } from "@liveblocks/react-flow"
 import { useTheme } from "next-themes"
-
-import "@xyflow/react/dist/style.css"
 import { StepNode } from "../nodes/step-node"
 import { StepNodeType } from "../nodes/node-registry"
+
+import "@xyflow/react/dist/style.css"
+import "@liveblocks/react-flow/styles.css"
+import "@liveblocks/react-ui/styles.css"
 
 /**
  * The example flow from the React Flow "Building a Flow" guide: an input node
@@ -75,13 +74,20 @@ export function Canvas() {
   const colorMode: ColorMode =
     mounted && resolvedTheme === "dark" ? "dark" : "light"
 
-  // Controlled flow: dragging nodes and drawing new edges writes back to state.
-  const [nodes, , onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
-
-  const onConnect = (connection: Connection) => {
-    setEdges((current) => addEdge(connection, current))
-  }
+  // Controlled flow, backed by Liveblocks Storage instead of local state: the
+  // graph is shared with everyone in the room, and the `initial` lists below are
+  // only written the first time a room is opened.
+  //
+  // `suspense: true` throws until Storage is ready, which the `ClientSideSuspense`
+  // in <Room> covers, so `nodes` and `edges` are never `null` here. Deletions go
+  // through `onDelete` - Storage ignores `remove` changes coming from
+  // `onNodesChange`/`onEdgesChange`, so React Flow has to be told about it.
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, onDelete } =
+    useLiveblocksFlow<StepNodeType, Edge>({
+      suspense: true,
+      nodes: { initial: initialNodes },
+      edges: { initial: initialEdges },
+    })
 
   return (
     <div className="size-full">
@@ -92,6 +98,7 @@ export function Canvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onDelete={onDelete}
         colorMode={colorMode}
         fitView
         connectionLineType={ConnectionLineType.SmoothStep}
@@ -110,6 +117,7 @@ export function Canvas() {
         maxZoom={1}
       >
         <Controls />
+        <Cursors />
       </ReactFlow>
     </div>
   )
