@@ -1,12 +1,11 @@
 import { OrganizationSwitcher, UserButton } from "@clerk/nextjs"
-import { Plus } from "lucide-react"
+import { auth } from "@clerk/nextjs/server"
 
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
@@ -14,8 +13,15 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { WorkflowNav } from "@/features/workflows/components/workflow-nav"
+import { listWorkflows } from "@/features/workflows/data"
+import { createWorkflowAction } from "@/features/workflows/lib/actions"
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export async function AppSidebar({
+  ...props
+}: React.ComponentProps<typeof Sidebar>) {
+  const { orgId } = await auth()
+  const workflows = orgId ? await listWorkflows(orgId) : []
+
   return (
     <Sidebar variant="inset" collapsible={"icon"} {...props}>
       <SidebarHeader className="flex-row items-center justify-between gap-2 overflow-hidden group-data-[collapsible=icon]:justify-center">
@@ -32,12 +38,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          <SidebarGroupAction title="New workflow">
-            <Plus />
-            <span className="sr-only">New workflow</span>
-          </SidebarGroupAction>
           <SidebarGroupContent>
-            <WorkflowNav />
+            <WorkflowNav
+              workflows={workflows}
+              createWorkflowAction={createWorkflowAction}
+            />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
