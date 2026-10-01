@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import {
   addEdge,
-  Background,
   ConnectionLineType,
   Controls,
   ReactFlow,
@@ -12,11 +11,13 @@ import {
   type ColorMode,
   type Connection,
   type Edge,
-  type Node,
+  NodeTypes,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
 
 import "@xyflow/react/dist/style.css"
+import { StepNode } from "../nodes/step-node"
+import { StepNodeType } from "../nodes/node-registry"
 
 /**
  * The example flow from the React Flow "Building a Flow" guide: an input node
@@ -26,30 +27,30 @@ import "@xyflow/react/dist/style.css"
  * Placeholder content — swap it for the workflow's own nodes and edges once the
  * editor reads real graph data.
  */
-const initialNodes: Node[] = [
+
+const nodeTypes: NodeTypes = { step: StepNode }
+
+const initialNodes: StepNodeType[] = [
   {
     id: "n1",
     position: { x: 0, y: 0 },
-    data: { label: "Node 1" },
-    type: "input",
+    data: { type: "start", kind: "trigger", title: "Start", values: {} },
+    type: "step",
   },
   {
     id: "n2",
-    position: { x: 100, y: 100 },
-    data: { label: "Node 2" },
-    type: "output",
+    position: { x: 320, y: 0 },
+    data: {
+      type: "open-url",
+      kind: "action",
+      title: "Open URL",
+      values: { url: "" },
+    },
+    type: "step",
   },
 ]
 
-const initialEdges: Edge[] = [
-  {
-    id: "n1-n2",
-    source: "n1",
-    target: "n2",
-    type: "smoothstep",
-    label: "connects with",
-  },
-]
+const initialEdges: Edge[] = [{ id: "e1", source: "n1", target: "n2" }]
 
 /**
  * Left-hand canvas of the workflow editor: the graph itself, above the logs.
@@ -85,6 +86,7 @@ export function Canvas() {
   return (
     <div className="size-full">
       <ReactFlow
+        nodeTypes={nodeTypes}
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
