@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useReactFlow, useStoreApi } from "@xyflow/react"
+import { useReactFlow, useStore } from "@xyflow/react"
 import { MoreHorizontal, Play, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -107,6 +107,8 @@ function FieldInput({
 
 // The Editor tab: one input per field on the selected node, or an empty state.
 function Inspector({ node }: { node: StepNodeType | undefined }) {
+  const { updateNodeData } = useReactFlow<StepNodeType>()
+
   if (!node) {
     return (
       <Section title="Editor">
@@ -134,7 +136,9 @@ function Inspector({ node }: { node: StepNodeType | undefined }) {
                 value={values[field.key] ?? ""}
                 onChange={(value) => {
                   // TODO: save the edit back onto the selected node.
-                  void value
+                  updateNodeData(node.id, {
+                    values: { ...values, [field.key]: value },
+                  })
                 }}
               />
             </div>
@@ -160,56 +164,45 @@ const definitions = Object.values(nodeRegistry)
 
 // The Toolbar tab: a button per node type that adds it to the canvas.
 function Palette() {
-  // The palette lives outside <ReactFlow>, but the provider on the workflows
-  // page puts the canvas and the sidebar on one shared React Flow store, so
-  // these hooks drive the same flow the canvas renders. They read state on
-  // demand (in the click handler) rather than subscribing, so clicks - not
-  // every pan or node drag - are what re-render the sidebar.
-  const { addNodes, getNodes } = useReactFlow<StepNodeType>()
-  const store = useStoreApi()
+  // The shared React Flow store (lifted to a provider above the canvas and this
+  // sidebar) lets us read the current nodes/viewport and add to them from here.
+  const { getNodes, getViewport, addNodes } = useReactFlow<StepNodeType>()
+  // The pane's measured size, used to find the center of the current view.
+  const width = useStore((s) => s.width)
+  const height = useStore((s) => s.height)
 
   const add = (type: NodeType) => {
     const def = nodeRegistry[type]
+    const nodes = getNodes()
 
-    // A workflow starts in exactly one place, so a second trigger is refused.
+    // Only one trigger is allowed — a workflow has a single entry point.
     if (
       def.kind === "trigger" &&
-      getNodes().some((node) => node.data.kind === "trigger")
+      nodes.some((n) => n.data.kind === "trigger")
     ) {
-      toast.error("A workflow can only have one trigger node")
+      toast.error("A workflow can only have one trigger.")
       return
     }
 
-    // Number nodes of the same type ("Open URL 1", "Open URL 2", ...) so
-    // they stay easy to tell apart once several sit on the canvas.
-    const sameType = getNodes().filter((node) => node.data.type === type).length
+    // Number nodes of the same type (e.g. "Open URL 1", "Open URL 2") so
+    // duplicates stay easy to tell apart.
+    const count = nodes.filter((n) => n.data.type === type).length
+    const title = `${def.label} ${count + 1}`
 
-    // Middle of the current view, in flow coordinates. React Flow draws
-    // `screen = flow * zoom + pan`, so inverting the transform on the center
-    // of the visible pane (its size lives in the shared store) drops the node
-    // wherever the user is currently looking.
-    const { width, height, transform } = store.getState()
-    const [panX, panY, zoom] = transform
+    // Drop the node in the middle of the current view. The viewport transform
+    // maps a flow point p to the screen as p * zoom + {x, y}, so the pane center
+    // in flow coordinates is (center - offset) / zoom.
+    const { x, y, zoom } = getViewport()
     const position = {
-      x: (width / 2 - panX) / zoom,
-      y: (height / 2 - panY) / zoom,
+      x: (width / 2 - x) / zoom,
+      y: (height / 2 - y) / zoom,
     }
 
-    // `addNodes` routes through the canvas's `onNodesChange` - the Liveblocks
-    // mutation - so the node is written to Storage and syncs to everyone in
-    // the room, like any other change to the graph.
     addNodes({
       id: crypto.randomUUID(),
       type: "step",
       position,
-      data: {
-        type,
-        kind: def.kind,
-        title: `${def.label} ${sameType + 1}`,
-        // One empty value per editable field, keyed like the inspector reads
-        // them (the initial placeholder nodes use the same shape).
-        values: Object.fromEntries(def.fields.map((field) => [field.key, ""])),
-      },
+      data: { type, kind: def.kind, title, values: {} },
     })
   }
 
@@ -304,9 +297,16 @@ export function RightSidebar() {
   const [tab, setTab] = useState("toolbar")
 
   // TODO: read the currently selected node from React Flow.
-  const selected: StepNodeType | undefined = undefined
+  // TODO: read the currently selected node from React Flow.
+  const selected = useStore((s) => s.nodes.find((n) => n.selected)) as
+    StepNodeType | undefined
 
   // TODO: auto-switch to the Editor tab when the selection changes.
+  const [prevSelectedId, setPrevSelectedId] = useState(selected?.id)
+  if (selected && selected.id !== prevSelectedId) {
+    setPrevSelectedId(selected.id)
+    setTab("editor")
+  }
 
   return (
     <ResizablePanel

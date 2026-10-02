@@ -38,20 +38,9 @@ const initialNodes: StepNodeType[] = [
     data: { type: "start", kind: "trigger", title: "Start", values: {} },
     type: "step",
   },
-  {
-    id: "n2",
-    position: { x: 320, y: 0 },
-    data: {
-      type: "open-url",
-      kind: "action",
-      title: "Open URL",
-      values: { url: "" },
-    },
-    type: "step",
-  },
 ]
 
-const initialEdges: Edge[] = [{ id: "e1", source: "n1", target: "n2" }]
+const initialEdges: Edge[] = []
 
 /**
  * Left-hand canvas of the workflow editor: the graph itself, above the logs.
