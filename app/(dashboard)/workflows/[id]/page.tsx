@@ -1,3 +1,5 @@
+import { ReactFlowProvider } from "@xyflow/react"
+
 import { WorkflowShell } from "@/features/workflows/components/workflow-shell"
 import { Room } from "@/features/workflows/components/room"
 import { auth } from "@clerk/nextjs/server"
@@ -54,9 +56,16 @@ export default async function WorkflowPage({ params }: WorkflowPageProps) {
 
   await ensureRoom(workflow.id, orgId)
 
+  // One React Flow store for the whole editor: the palette in the sidebar
+  // lives outside <ReactFlow> in the canvas, so both need a shared provider
+  // above them for the sidebar's hooks to drive the same flow. The provider is
+  // a client component (the package ships "use client"), so it can wrap
+  // client children from this server component.
   return (
-    <Room roomId={workflow.id}>
-      <WorkflowShell workflowId={workflow.id} />
-    </Room>
+    <ReactFlowProvider>
+      <Room roomId={workflow.id}>
+        <WorkflowShell workflowId={workflow.id} />
+      </Room>
+    </ReactFlowProvider>
   )
 }

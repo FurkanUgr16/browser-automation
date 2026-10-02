@@ -1,7 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import { useReactFlow, useStoreApi } from "@xyflow/react"
 import { MoreHorizontal, Play, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 import {
   Accordion,
@@ -158,9 +160,57 @@ const definitions = Object.values(nodeRegistry)
 
 // The Toolbar tab: a button per node type that adds it to the canvas.
 function Palette() {
+  // The palette lives outside <ReactFlow>, but the provider on the workflows
+  // page puts the canvas and the sidebar on one shared React Flow store, so
+  // these hooks drive the same flow the canvas renders. They read state on
+  // demand (in the click handler) rather than subscribing, so clicks - not
+  // every pan or node drag - are what re-render the sidebar.
+  const { addNodes, getNodes } = useReactFlow<StepNodeType>()
+  const store = useStoreApi()
+
   const add = (type: NodeType) => {
-    // TODO: add the clicked node to the canvas (one trigger max).
-    void type
+    const def = nodeRegistry[type]
+
+    // A workflow starts in exactly one place, so a second trigger is refused.
+    if (
+      def.kind === "trigger" &&
+      getNodes().some((node) => node.data.kind === "trigger")
+    ) {
+      toast.error("A workflow can only have one trigger node")
+      return
+    }
+
+    // Number nodes of the same type ("Open URL 1", "Open URL 2", ...) so
+    // they stay easy to tell apart once several sit on the canvas.
+    const sameType = getNodes().filter((node) => node.data.type === type).length
+
+    // Middle of the current view, in flow coordinates. React Flow draws
+    // `screen = flow * zoom + pan`, so inverting the transform on the center
+    // of the visible pane (its size lives in the shared store) drops the node
+    // wherever the user is currently looking.
+    const { width, height, transform } = store.getState()
+    const [panX, panY, zoom] = transform
+    const position = {
+      x: (width / 2 - panX) / zoom,
+      y: (height / 2 - panY) / zoom,
+    }
+
+    // `addNodes` routes through the canvas's `onNodesChange` - the Liveblocks
+    // mutation - so the node is written to Storage and syncs to everyone in
+    // the room, like any other change to the graph.
+    addNodes({
+      id: crypto.randomUUID(),
+      type: "step",
+      position,
+      data: {
+        type,
+        kind: def.kind,
+        title: `${def.label} ${sameType + 1}`,
+        // One empty value per editable field, keyed like the inspector reads
+        // them (the initial placeholder nodes use the same shape).
+        values: Object.fromEntries(def.fields.map((field) => [field.key, ""])),
+      },
+    })
   }
 
   return (
