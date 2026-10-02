@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useReactFlow, useStore } from "@xyflow/react"
 import { MoreHorizontal, Play, Trash2 } from "lucide-react"
+import { unstable_rethrow } from "next/navigation"
 import { toast } from "sonner"
 
 import {
@@ -32,6 +33,8 @@ import {
   type StepNodeKind,
   type StepNodeType,
 } from "@/features/workflows/nodes/node-registry"
+import { deleteWorkflowAction } from "@/features/workflows/lib/actions"
+import { Textarea } from "@/components/ui/textarea"
 
 // This file builds up to the RightSidebar component exported at the bottom: a
 // header with workflow actions (delete, run), then two tabs — a Toolbar for
@@ -85,7 +88,7 @@ function Section({
 // ---------------------------------------------------------------------------
 
 // A single editor field for a node property.
-function FieldInput({
+function Field({
   field,
   value,
   onChange,
@@ -95,6 +98,18 @@ function FieldInput({
   onChange: (value: string) => void
 }) {
   // TODO: support a multiline field variant (textarea).
+
+  if (field.multiline) {
+    return (
+      <Textarea
+        id={field.key}
+        value={value}
+        placeholder={field.placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    )
+  }
+
   return (
     <Input
       id={field.key}
@@ -130,8 +145,9 @@ function Inspector({ node }: { node: StepNodeType | undefined }) {
             <div key={field.key} className="flex flex-col gap-1.5">
               <Label htmlFor={field.key} className="text-xs">
                 {field.label}
+                {field.required && <span className="text-destructive">*</span>}
               </Label>
-              <FieldInput
+              <Field
                 field={field}
                 value={values[field.key] ?? ""}
                 onChange={(value) => {
@@ -248,8 +264,14 @@ function Palette() {
 // Header — workflow-level actions shown above the tabs.
 // ---------------------------------------------------------------------------
 
-// The "..." menu for workflow-level actions.
-function ActionsMenu() {
+// The "..." menu for workflow-level actions. Deletes the workflow this
+// sidebar belongs to via a server action — the row and its Liveblocks room are
+// removed server-side, and the action redirects back to the homepage.
+function ActionsMenu({ workflowId }: { workflowId: string }) {
+  // The transition stays pending until the action settles (or the redirect
+  // navigates away), which drives the item's disabled state.
+  const [isDeleting, startTransition] = useTransition()
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -260,9 +282,12 @@ function ActionsMenu() {
       <DropdownMenuContent align="start" className="min-w-48">
         <DropdownMenuItem
           variant="destructive"
+          disabled={isDeleting}
           className="text-xs [&_svg:not([class*='size-'])]:size-3.5"
           onSelect={() => {
-            // TODO: delete the workflow, then navigate away.
+            startTransition(async () => {
+              await deleteWorkflowAction(workflowId)
+            })
           }}
         >
           <Trash2 />
@@ -293,7 +318,7 @@ function RunButton() {
 // The sidebar itself — header on top, then the Toolbar / Editor tabs.
 // ---------------------------------------------------------------------------
 
-export function RightSidebar() {
+export function RightSidebar({ workflowId }: { workflowId: string }) {
   const [tab, setTab] = useState("toolbar")
 
   // TODO: read the currently selected node from React Flow.
@@ -318,7 +343,7 @@ export function RightSidebar() {
     >
       <Tabs value={tab} onValueChange={setTab} className="size-full gap-0">
         <div className="flex items-center justify-between border-b border-border p-2">
-          <ActionsMenu />
+          <ActionsMenu workflowId={workflowId} />
           <RunButton />
         </div>
         <TabsList className="m-2 w-fit bg-background">
