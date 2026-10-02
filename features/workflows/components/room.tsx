@@ -6,6 +6,7 @@ import {
   RoomProvider,
   ClientSideSuspense,
 } from "@liveblocks/react/suspense"
+import { Spinner } from "@/components/ui/spinner"
 
 /**
  * Wraps a workflow editor in a Liveblocks room.
@@ -24,9 +25,31 @@ export function Room({
   roomId: string
 }) {
   return (
-    <LiveblocksProvider throttle={16} authEndpoint="/api/liveblocks/auth">
+    <LiveblocksProvider
+      throttle={16}
+      authEndpoint="/api/liveblocks/auth"
+      resolveUsers={async ({ userIds }) => {
+        const response = await fetch("/api/liveblocks/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userIds }),
+        })
+
+        if (!response.ok) {
+          return undefined
+        }
+
+        return response.json()
+      }}
+    >
       <RoomProvider id={roomId}>
-        <ClientSideSuspense fallback={<div>Loading…</div>}>
+        <ClientSideSuspense
+          fallback={
+            <div className="flex min-h-svh items-center justify-center">
+              <Spinner className="size-6 text-muted-foreground" />
+            </div>
+          }
+        >
           {children}
         </ClientSideSuspense>
       </RoomProvider>
