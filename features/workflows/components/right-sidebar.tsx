@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ResizablePanel } from "@/components/ui/resizable"
+import { Spinner } from "@/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
@@ -52,8 +53,18 @@ import { Textarea } from "@/components/ui/textarea"
 // Shared pieces — used by both the Toolbar and the Editor.
 // ---------------------------------------------------------------------------
 
-// The accent-colored icon chip, mirroring the node on the canvas.
-function NodeIcon({ type, className }: { type: NodeType; className?: string }) {
+// The accent-colored icon chip, mirroring the node on the canvas. Shared by the
+// node editor, the toolbar palette, and the console's step rows.
+export function NodeIcon({
+  type,
+  running,
+  className,
+}: {
+  type: NodeType
+  /** Spin in place of the icon, while the node's work is in flight. */
+  running?: boolean
+  className?: string
+}) {
   const def = nodeRegistry[type]
   const Icon = def.icon
   return (
@@ -64,7 +75,11 @@ function NodeIcon({ type, className }: { type: NodeType; className?: string }) {
         className
       )}
     >
-      <Icon className="size-3.5" />
+      {running ? (
+        <Spinner className="size-3.5" />
+      ) : (
+        <Icon className="size-3.5" />
+      )}
     </span>
   )
 }

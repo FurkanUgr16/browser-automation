@@ -7,14 +7,12 @@ import {
 } from "@/components/ui/resizable"
 
 import { Canvas } from "@/features/workflows/components/canvas"
+import { ConsolePanel } from "@/features/workflows/components/console-panel"
 import { RightSidebar } from "@/features/workflows/components/right-sidebar"
 
 type WorkflowShellProps = {
   workflowId: string
 }
-
-const placeholder =
-  "flex size-full items-center justify-center text-sm text-muted-foreground"
 
 /**
  * Layout shell of the workflow editor: the canvas over the logs on the left, the
@@ -41,7 +39,7 @@ export function WorkflowShell({ workflowId }: WorkflowShellProps) {
             defaultSize="8rem"
             minSize="6rem"
           >
-            <div className={placeholder}>Logs</div>
+            <ConsolePanel />
           </ResizablePanel>
         </ResizablePanelGroup>
       </ResizablePanel>
