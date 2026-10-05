@@ -36,6 +36,12 @@ export type WorkflowRun = {
    * duration, output, and error.
    */
   steps: RunStep[]
+  /**
+   * The Browserbase session this run drove, which is what its recording is played
+   * back from. Absent for a run still in flight and for one that never opened a
+   * browser.
+   */
+  sessionId?: string
 }
 
 type WorkflowRunsValue = {
@@ -57,8 +63,8 @@ const WorkflowRunsContext = createContext<WorkflowRunsValue>(noRuns)
 
 /**
  * Columns neither the canvas nor the console reads. `output` and `metadata` have
- * to stay — one of them carries the step list — `createdAt` orders the runs, and
- * `status` is what decides `isLive`.
+ * to stay — one of them carries the step list and only the output carries the
+ * session id — `createdAt` orders the runs, and `status` is what decides `isLive`.
  */
 const skipColumns: UseRealtimeRunsWithTagOptions["skipColumns"] = [
   "payload",
@@ -128,6 +134,10 @@ export function WorkflowRunsProvider({
         isLive: run.status === "QUEUED" || run.status === "EXECUTING",
         createdAt: run.createdAt,
         steps,
+        // Output alone: Browserbase records against the session it has closed, so
+        // a live run has no replayable recording to point at even once its
+        // browser was launched.
+        sessionId: run.output?.sessionId,
       } satisfies WorkflowRun
     })
 
@@ -165,7 +175,8 @@ export function useLatestRunSteps(): WorkflowRunsValue {
  *
  * A run's steps come from its output once it has finished and from the metadata
  * it flushes while it is still going, so a panel can show a step's result while
- * the run that produced it is still in flight.
+ * the run that produced it is still in flight. Its `sessionId` is the exception:
+ * it appears only once the run is over. See {@link WorkflowRun.sessionId}.
  */
 export function useWorkflowRuns(): WorkflowRunsValue {
   return useContext(WorkflowRunsContext)

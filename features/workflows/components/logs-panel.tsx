@@ -1,5 +1,6 @@
 "use client"
 
+import { Film } from "lucide-react"
 import prettyMs from "pretty-ms"
 
 import { NodeIcon } from "@/features/workflows/components/right-sidebar"
@@ -10,17 +11,22 @@ import type { RunStep } from "@/features/workflows/tasks/run-workflow"
 import { cn } from "@/lib/utils"
 
 /**
- * The step a reader picked: which run it came from, and which step of that run.
- * The run is part of it because the same node appears in every run, so a node id
- * alone would not say which run's result is on screen.
+ * The row a reader picked: one step of a run, or a run's recording as a whole.
+ * Either way the run is part of it, because the same node appears in every run,
+ * so a node id alone would not say which run's result is on screen.
+ *
+ * One selection at a time — a run's replay and one of its steps are the two ways
+ * to read the same run, never two panes beside each other.
  */
-export type StepSelection = { runId: string; stepId: string }
+export type ConsoleSelection =
+  | { kind: "step"; runId: string; stepId: string }
+  | { kind: "replay"; runId: string }
 
 type LogsPanelProps = {
   /** Every run of the workflow, newest first. */
   runs: WorkflowRun[]
-  selected: StepSelection | null
-  onSelect: (selection: StepSelection) => void
+  selected: ConsoleSelection | null
+  onSelect: (selection: ConsoleSelection) => void
 }
 
 const panelHeader =
@@ -58,16 +64,21 @@ export function LogsPanel({ runs, selected, onSelect }: LogsPanelProps) {
   )
 }
 
-// One run: when it started, then its steps in the order they ran.
+// One run: when it started, then its steps in the order they ran, then the
+// recording of the whole thing.
 function RunGroup({
   run,
   selected,
   onSelect,
 }: {
   run: WorkflowRun
-  selected: StepSelection | null
-  onSelect: (selection: StepSelection) => void
+  selected: ConsoleSelection | null
+  onSelect: (selection: ConsoleSelection) => void
 }) {
+  // A run has a recording once its session id has arrived — which is only once it
+  // finished, and never for a run killed before it returned anything.
+  const sessionId = run.isLive ? undefined : run.sessionId
+
   return (
     <div className="flex flex-col gap-0.5 p-2">
       <div className="px-2 pt-1 pb-1 text-[0.65rem] font-medium tracking-wider text-muted-foreground/70 tabular-nums">
@@ -83,10 +94,23 @@ function RunGroup({
           key={step.id}
           run={run}
           step={step}
-          selected={selected?.runId === run.id && selected.stepId === step.id}
+          selected={
+            selected?.kind === "step" &&
+            selected.runId === run.id &&
+            selected.stepId === step.id
+          }
           onSelect={onSelect}
         />
       ))}
+
+      {sessionId && (
+        <ReplayRow
+          run={run}
+          sessionId={sessionId}
+          selected={selected?.kind === "replay" && selected.runId === run.id}
+          onSelect={onSelect}
+        />
+      )}
     </div>
   )
 }
@@ -102,7 +126,7 @@ function StepRow({
   run: WorkflowRun
   step: RunStep
   selected: boolean
-  onSelect: (selection: StepSelection) => void
+  onSelect: (selection: ConsoleSelection) => void
 }) {
   // A run that was killed rather than finishing cleanly leaves its last node
   // marked "running", so the spinner only turns while the run itself is live.
@@ -114,7 +138,7 @@ function StepRow({
     <button
       type="button"
       aria-pressed={selected}
-      onClick={() => onSelect({ runId: run.id, stepId: step.id })}
+      onClick={() => onSelect({ kind: "step", runId: run.id, stepId: step.id })}
       className={cn(
         "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
         "hover:bg-accent/50",
@@ -134,6 +158,42 @@ function StepRow({
           {prettyMs(step.durationMs)}
         </span>
       )}
+    </button>
+  )
+}
+
+// The row under a finished run's steps. It is picked and highlighted exactly like
+// a step, but it is not one: it stands for the whole run, so it carries the run's
+// recording rather than a result of its own — hence no duration, and an icon in a
+// neutral chip instead of a node's colored one.
+function ReplayRow({
+  run,
+  sessionId,
+  selected,
+  onSelect,
+}: {
+  run: WorkflowRun
+  /** The Browserbase session this run drove — what the row plays back. */
+  sessionId: string
+  selected: boolean
+  onSelect: (selection: ConsoleSelection) => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      title={sessionId}
+      onClick={() => onSelect({ kind: "replay", runId: run.id })}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
+        "hover:bg-accent/50",
+        selected && "bg-accent"
+      )}
+    >
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted-foreground/15 text-muted-foreground">
+        <Film className="size-3.5" />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-left">Replay</span>
     </button>
   )
 }

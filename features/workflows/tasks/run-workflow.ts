@@ -82,6 +82,11 @@ export const runWorkflowTask = task({
 
     logger.log(`Running step: ${workflow.name}`, { steps: order.length })
 
+    // The browser is opened by the first node that needs one, so the session id is
+    // captured here rather than at the top of the run and stays undefined for a
+    // workflow that never drives a browser.
+    let sessionId: string | undefined
+
     let stagehand: Stagehand | undefined
     const getStagehand = async () => {
       if (stagehand) return stagehand
@@ -107,6 +112,10 @@ export const runWorkflowTask = task({
         apiKey: process.env.BROWSERBASE_API_KEY as string,
         extensionId,
       })
+
+      // Every run drives exactly one Browserbase session, and this id is what its
+      // recording is fetched with.
+      sessionId = browser.sessionId
 
       stagehand = await Stagehand.create({
         browser,
@@ -194,6 +203,10 @@ export const runWorkflowTask = task({
     }
 
     // The finished state is guaranteed even for a run nobody was watching.
-    return { steps }
+    //
+    // The session id belongs to the output and not to the metadata: Browserbase
+    // records against the session it has closed, so there is nothing to replay for
+    // a run that is still going and no reason to publish an id nobody can use yet.
+    return { steps, sessionId }
   },
 })

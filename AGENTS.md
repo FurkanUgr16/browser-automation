@@ -6,6 +6,18 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
+## Browserbase observability
+
+Session recordings, replays, live view, and logs come from the core Browserbase SDK
+(`@browserbasehq/sdk`) — not Stagehand. Before building any observability feature, consult
+Browserbase's observability docs:
+https://docs.browserbase.com/platform/browser/observability
+
+Session replay specifically — retrieving a session's recording as an HLS playlist — is
+documented here:
+https://docs.browserbase.com/platform/browser/observability/session-replay
+The retrieval needs the secret API key, so it must be proxied server-side.
+
 # Adding a workflow node
 
 Three edits, all under `features/workflows/nodes/`:
