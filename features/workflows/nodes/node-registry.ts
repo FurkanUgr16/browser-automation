@@ -13,6 +13,14 @@ export type NodeField = {
   required?: boolean
 }
 
+// One value a node hands to the nodes downstream of it. `path` is where it lives
+// in the node's result - and what a downstream field writes as {{ nodeId.path }} -
+// while `label` is the human half shown in the inspector.
+export type NodeOutput = {
+  path: string
+  label: string
+}
+
 // A node type's manifest entry. Add a node by adding an entry to nodeRegistry.
 export type NodeDefinition = {
   type: string
@@ -21,6 +29,7 @@ export type NodeDefinition = {
   icon: LucideIcon
   accent: string // Tailwind classes for the icon chip color
   fields: NodeField[]
+  outputs: NodeOutput[]
 }
 
 export const nodeRegistry = {
@@ -31,6 +40,7 @@ export const nodeRegistry = {
     icon: MousePointerClick,
     accent: "bg-blue-500 text-white",
     fields: [],
+    outputs: [],
   },
   "open-url": {
     type: "open-url",
@@ -45,6 +55,10 @@ export const nodeRegistry = {
         placeholder: "https://youtube.com",
         required: true,
       },
+    ],
+    outputs: [
+      { path: "url", label: "URL" },
+      { path: "title", label: "Title" },
     ],
   },
 } satisfies Record<string, NodeDefinition>

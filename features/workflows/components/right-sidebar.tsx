@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { useReactFlow, useStore } from "@xyflow/react"
 import { MoreHorizontal, Play, Trash2 } from "lucide-react"
-import { unstable_rethrow } from "next/navigation"
+
 import { toast } from "sonner"
 
 import {
@@ -37,6 +37,10 @@ import {
   deleteWorkflowAction,
   runWorkflowAction,
 } from "@/features/workflows/lib/actions"
+import {
+  useUpstreamConnections,
+  type UpstreamConnection,
+} from "@/features/workflows/hooks/use-upstream-connections"
 import { validateGraph } from "@/lib/validate-graph"
 import { Textarea } from "@/components/ui/textarea"
 
@@ -71,13 +75,15 @@ function Section({
   title,
   icon,
   children,
+  className,
 }: {
   title: string
   icon?: React.ReactNode
   children: React.ReactNode
+  className?: string
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
       <div className="flex items-center gap-2 border-y border-border bg-card px-3 py-1.5 text-sm font-semibold">
         {icon}
         {title}
@@ -96,10 +102,12 @@ function Field({
   field,
   value,
   onChange,
+  onFocus,
 }: {
   field: NodeField
   value: string
   onChange: (value: string) => void
+  onFocus?: () => void
 }) {
   // TODO: support a multiline field variant (textarea).
 
@@ -109,6 +117,7 @@ function Field({
         id={field.key}
         value={value}
         placeholder={field.placeholder}
+        onFocus={onFocus}
         onChange={(e) => onChange(e.target.value)}
       />
     )
@@ -119,6 +128,7 @@ function Field({
       id={field.key}
       value={value}
       placeholder={field.placeholder}
+      onFocus={onFocus}
       onChange={(e) => onChange(e.target.value)}
     />
   )
@@ -127,6 +137,17 @@ function Field({
 // The Editor tab: one input per field on the selected node, or an empty state.
 function Inspector({ node }: { node: StepNodeType | undefined }) {
   const { updateNodeData } = useReactFlow<StepNodeType>()
+  const connections = useUpstreamConnections(node)
+
+  // Which field a Connections chip writes into: the one the user last touched,
+  // or the first field while they have not touched one. Cleared when a different
+  // node is selected, since field keys are per node type.
+  const [lastField, setLastField] = useState<string | null>(null)
+  const [lastNodeId, setLastNodeId] = useState(node?.id)
+  if (node?.id !== lastNodeId) {
+    setLastNodeId(node?.id)
+    setLastField(null)
+  }
 
   if (!node) {
     return (
@@ -139,33 +160,76 @@ function Inspector({ node }: { node: StepNodeType | undefined }) {
   const { type, title, values } = node.data
   const def: NodeDefinition = nodeRegistry[type]
 
+  // Chips need somewhere to land, so a node without fields never shows them -
+  // otherwise every chip would be a no-op.
+  const insertKey =
+    lastField && def.fields.some((field) => field.key === lastField)
+      ? lastField
+      : def.fields[0]?.key
+
+  const insert = ({ token }: UpstreamConnection) => {
+    if (!insertKey) return
+
+    updateNodeData(node.id, {
+      values: { ...values, [insertKey]: `${values[insertKey] ?? ""}${token}` },
+    })
+  }
+
   return (
-    <Section title={title} icon={<NodeIcon type={type} />}>
-      <div className="flex flex-col gap-3 p-3">
-        {def.fields.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No properties</p>
-        ) : (
-          def.fields.map((field) => (
-            <div key={field.key} className="flex flex-col gap-1.5">
-              <Label htmlFor={field.key} className="text-xs">
-                {field.label}
-                {field.required && <span className="text-destructive">*</span>}
-              </Label>
-              <Field
-                field={field}
-                value={values[field.key] ?? ""}
-                onChange={(value) => {
-                  // TODO: save the edit back onto the selected node.
-                  updateNodeData(node.id, {
-                    values: { ...values, [field.key]: value },
-                  })
-                }}
-              />
-            </div>
-          ))
-        )}
-      </div>
-    </Section>
+    <>
+      <Section title={title} icon={<NodeIcon type={type} />}>
+        <div className="flex flex-col gap-3 p-3">
+          {def.fields.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No properties</p>
+          ) : (
+            def.fields.map((field) => (
+              <div key={field.key} className="flex flex-col gap-1.5">
+                <Label htmlFor={field.key} className="text-xs">
+                  {field.label}
+                  {field.required && (
+                    <span className="text-destructive">*</span>
+                  )}
+                </Label>
+                <Field
+                  field={field}
+                  value={values[field.key] ?? ""}
+                  onFocus={() => setLastField(field.key)}
+                  onChange={(value) => {
+                    setLastField(field.key)
+                    // TODO: save the edit back onto the selected node.
+                    updateNodeData(node.id, {
+                      values: { ...values, [field.key]: value },
+                    })
+                  }}
+                />
+              </div>
+            ))
+          )}
+        </div>
+      </Section>
+
+      {connections.length > 0 && insertKey && (
+        <Section title="Connections" className="max-h-44 shrink-0">
+          <div className="flex flex-wrap gap-1.5 p-2">
+            {connections.map((connection) => (
+              <Button
+                key={connection.token}
+                variant="outline"
+                size="xs"
+                className="max-w-full rounded-full pl-1 font-normal"
+                // The chip shows a friendly label, so let people see the raw
+                // placeholder they are about to get.
+                title={connection.token}
+                onClick={() => insert(connection)}
+              >
+                <NodeIcon type={connection.type} className="size-4" />
+                <span className="min-w-0 truncate">{connection.label}</span>
+              </Button>
+            ))}
+          </div>
+        </Section>
+      )}
+    </>
   )
 }
 

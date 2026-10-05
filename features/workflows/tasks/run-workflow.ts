@@ -3,6 +3,7 @@ import { logger, task } from "@trigger.dev/sdk"
 import { getWorkflow } from "../data"
 import { Stagehand, browserbase } from "@browserbasehq/stagehand"
 import { nodeExecutors } from "../nodes/node-executors"
+import { interpolate, type RunOutputs } from "../lib/interpolate"
 
 export const runWorkflowTask = task({
   id: "run-workflow",
@@ -61,12 +62,26 @@ export const runWorkflowTask = task({
       return stagehand
     }
 
+    // Results of the nodes that already ran, keyed by node id, so a node can pull
+    // them in with {{ nodeId.path }} placeholders. Nodes run in dependency order,
+    // so everything a node references is in here by the time we reach it.
+    const outputs: RunOutputs = {}
+
     for (const id of order) {
       const node = byId.get(id)!
       logger.log(`Running step: ${node.data.title}`)
 
       const executor = nodeExecutors[node.data.type]
-      if (executor) await executor({ values: node.data.values, getStagehand })
+      if (!executor) continue
+
+      const values = Object.fromEntries(
+        Object.entries(node.data.values).map(([key, value]) => [
+          key,
+          interpolate(value, outputs),
+        ])
+      )
+
+      outputs[id] = await executor({ values, getStagehand })
       // its progress os ui can watch the run live
     }
 

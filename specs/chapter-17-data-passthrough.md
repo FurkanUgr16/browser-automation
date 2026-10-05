@@ -68,7 +68,7 @@ parents, and re-compute as I connect and disconnect edges.
 Each node already declares which outputs it exposes.
 
 Put it with the workflow feature's hooks and call it `useUpstreamConnections`.
-Follow the CLAUDE.md rule for using ReactFlow.
+Follow the AGENTS.md rule for using ReactFlow.
 ```
 
 ## 5. Connections chips in the inspector
@@ -86,5 +86,5 @@ or the first field if I haven't touched one yet.
 
 I want this for every connected node, not only the ones with a large text field.
 
-Follow the CLAUDE.md rule for using ReactFlow.
+Follow the AGENTS.md rule for using ReactFlow.
 ```
