@@ -1,7 +1,9 @@
 import { ReactFlowProvider } from "@xyflow/react"
+import { auth as triggerAuth } from "@trigger.dev/sdk"
 
 import { WorkflowShell } from "@/features/workflows/components/workflow-shell"
 import { Room } from "@/features/workflows/components/room"
+import { WorkflowRunsProvider } from "@/features/workflows/components/workflow-runs-provider"
 import { auth } from "@clerk/nextjs/server"
 import { LiveblocksError } from "@liveblocks/node"
 import { notFound } from "next/navigation"
@@ -56,6 +58,19 @@ export default async function WorkflowPage({ params }: WorkflowPageProps) {
 
   await ensureRoom(workflow.id, orgId)
 
+  /**
+   * Credentials for the canvas' live run status. Read-only and narrowed to this
+   * workflow's run tag — the same one `runWorkflowAction` stamps on every run —
+   * so the token can never see another workflow's runs, let alone trigger one.
+   *
+   * Minted per request and good for an hour, which covers an editing session
+   * without leaving a long-lived read key lying around.
+   */
+  const runsAccessToken = await triggerAuth.createPublicToken({
+    scopes: { read: { tags: [`workflow:${workflow.id}`] } },
+    expirationTime: "1h",
+  })
+
   // One React Flow store for the whole editor: the palette in the sidebar
   // lives outside <ReactFlow> in the canvas, so both need a shared provider
   // above them for the sidebar's hooks to drive the same flow. The provider is
@@ -64,7 +79,12 @@ export default async function WorkflowPage({ params }: WorkflowPageProps) {
   return (
     <ReactFlowProvider>
       <Room roomId={workflow.id}>
-        <WorkflowShell workflowId={workflow.id} />
+        <WorkflowRunsProvider
+          workflowId={workflow.id}
+          publicAccessToken={runsAccessToken}
+        >
+          <WorkflowShell workflowId={workflow.id} />
+        </WorkflowRunsProvider>
       </Room>
     </ReactFlowProvider>
   )

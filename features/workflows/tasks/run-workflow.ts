@@ -1,9 +1,18 @@
 import toposort from "toposort"
-import { logger, task } from "@trigger.dev/sdk"
+import { logger, metadata, task } from "@trigger.dev/sdk"
 import { getWorkflow } from "../data"
 import { Stagehand, browserbase } from "@browserbasehq/stagehand"
 import { nodeExecutors } from "../nodes/node-executors"
 import { interpolate, type RunOutputs } from "../lib/interpolate"
+
+/**
+ * One node's place in the run, published to run metadata under `steps` so the
+ * canvas can paint progress without waiting for the run to finish.
+ */
+export type RunStep = {
+  id: string
+  status: "pending" | "running" | "done" | "failed"
+}
 
 export const runWorkflowTask = task({
   id: "run-workflow",
@@ -67,6 +76,20 @@ export const runWorkflowTask = task({
     // so everything a node references is in here by the time we reach it.
     const outputs: RunOutputs = {}
 
+    // Everything we're about to run, published up front so the canvas can lay out
+    // the whole path in its pending state before the first node starts.
+    let steps: RunStep[] = order.map((id) => ({ id, status: "pending" }))
+
+    const setStep = (id: string, status: RunStep["status"]) => {
+      // Always a fresh array: metadata.set() hands the value to a background
+      // flush, so mutating in place would let a later state be serialized in
+      // place of the one being reported.
+      steps = steps.map((step) => (step.id === id ? { ...step, status } : step))
+      metadata.set("steps", steps)
+    }
+
+    metadata.set("steps", steps)
+
     for (const id of order) {
       const node = byId.get(id)!
       logger.log(`Running step: ${node.data.title}`)
@@ -81,10 +104,26 @@ export const runWorkflowTask = task({
         ])
       )
 
-      outputs[id] = await executor({ values, getStagehand })
-      // its progress os ui can watch the run live
+      setStep(id, "running")
+      // Only the newest pending write for a key reaches the database, so without
+      // this flush "running" is replaced by "done" before it is ever pushed and
+      // the spinner never renders.
+      await metadata.flush()
+
+      try {
+        outputs[id] = await executor({ values, getStagehand })
+      } catch (err) {
+        setStep(id, "failed")
+        // A thrown run returns no output, so the flushed metadata is the only
+        // way the failure ever reaches the canvas.
+        await metadata.flush()
+        throw err
+      }
+
+      setStep(id, "done")
     }
 
-    return { steps: order.length }
+    // The finished state is guaranteed even for a run nobody was watching.
+    return { steps }
   },
 })

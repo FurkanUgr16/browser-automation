@@ -2,9 +2,11 @@ import { memo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 
 import { nodeRegistry, type StepNodeType } from "./node-registry"
+import { useLatestRunSteps } from "@/features/workflows/components/workflow-runs-provider"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
-function StepNodeComponent({ data, selected }: NodeProps<StepNodeType>) {
+function StepNodeComponent({ id, data, selected }: NodeProps<StepNodeType>) {
   const { type, kind, title, values } = data
   const def = nodeRegistry[type]
   const Icon = def.icon
@@ -13,10 +15,22 @@ function StepNodeComponent({ data, selected }: NodeProps<StepNodeType>) {
   // A trigger starts the flow and takes no input, so it has no target handle.
   const hasTarget = kind !== "trigger"
 
+  // Where this node got to in the newest run. The list is shared by every node
+  // through one subscription, so this only costs a lookup.
+  const { steps, isLive } = useLatestRunSteps()
+  const status = steps.find((step) => step.id === id)?.status
+
+  // A run that was killed rather than finishing cleanly leaves its last node
+  // marked "running", so the spinner only turns while the run itself is live.
+  const running = isLive && status === "running"
+  const failed = status === "failed"
+
   return (
     <div
       className={cn(
         "max-w-80 min-w-50 rounded-(--radius) border-2 border-border bg-card text-card-foreground",
+        running && "border-blue-500",
+        failed && "border-destructive",
         selected && "ring-2 ring-ring ring-offset-2 ring-offset-background"
       )}
     >
@@ -36,7 +50,7 @@ function StepNodeComponent({ data, selected }: NodeProps<StepNodeType>) {
             def.accent
           )}
         >
-          <Icon className="size-4" />
+          {running ? <Spinner /> : <Icon className="size-4" />}
         </div>
         <span className="text-sm font-semibold">{title}</span>
       </div>
